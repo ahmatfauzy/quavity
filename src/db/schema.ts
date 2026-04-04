@@ -8,13 +8,19 @@ import {
   uuid,
   pgEnum,
   primaryKey,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // Enums
-export const roleEnum = pgEnum("role", ["employee", "pm", "hr"]);
+export const roleEnum = pgEnum("role", ["employee", "pm", "hr", "owner", "superadmin"]);
 export const accountStatusEnum = pgEnum("account_status", [
   "pending",
   "active",
+  "rejected",
+]);
+export const companyStatusEnum = pgEnum("company_status", [
+  "pending",
+  "approved",
   "rejected",
 ]);
 export const taskStatusEnum = pgEnum("task_status", [
@@ -55,6 +61,7 @@ export const user = pgTable("user", {
   role: roleEnum("role").default("employee").notNull(),
   status: accountStatusEnum("status").default("pending").notNull(),
   department: text("department"),
+  companyId: uuid("company_id").references((): AnyPgColumn => companies.id),
 });
 
 export const session = pgTable("session", {
@@ -99,11 +106,22 @@ export const verification = pgTable("verification", {
 
 // Business Logic Tables
 
+export const companies = pgTable("companies", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  ownerId: text("owner_id").references((): AnyPgColumn => user.id),
+  status: companyStatusEnum("status").default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const projects = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").default("active"), // active, completed, archived
+  companyId: uuid("company_id").references(() => companies.id),
   managerId: text("manager_id").references(() => user.id),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
@@ -239,6 +257,20 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.managerId],
     references: [user.id],
   }),
+  company: one(companies, {
+    fields: [projects.companyId],
+    references: [companies.id],
+  }),
+}));
+
+export const companiesRelations = relations(companies, ({ one, many }) => ({
+  owner: one(user, {
+    fields: [companies.ownerId],
+    references: [user.id],
+    relationName: "companyOwner",
+  }),
+  users: many(user, { relationName: "companyUsers" }),
+  projects: many(projects),
 }));
 
 export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
@@ -275,10 +307,16 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   }),
 }));
 
-export const usersRelations = relations(user, ({ many }) => ({
+export const usersRelations = relations(user, ({ one, many }) => ({
   assignedTasks: many(tasks),
   managedProjects: many(projects),
   projectMemberships: many(projectMembers),
+  company: one(companies, {
+    fields: [user.companyId],
+    references: [companies.id],
+    relationName: "companyUsers",
+  }),
+  ownedCompanies: many(companies, { relationName: "companyOwner" }),
 }));
 
 export const subtasksRelations = relations(subtasks, ({ one }) => ({

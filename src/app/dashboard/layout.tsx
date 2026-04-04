@@ -29,6 +29,10 @@ export default async function DashboardLayout({
 
   const status = session.user.status;
 
+  if (!session.user.companyId && session.user.role !== "superadmin") {
+    redirect("/setup-company");
+  }
+
   if (status === "pending") {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center p-4">

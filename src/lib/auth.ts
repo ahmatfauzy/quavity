@@ -32,6 +32,10 @@ export const auth = betterAuth({
       status: {
          type: "string",
          defaultValue: "pending",
+      },
+      companyId: {
+         type: "string",
+         required: false,
       }
     },
   },
@@ -44,7 +48,7 @@ export const auth = betterAuth({
               return {
                  data: {
                    ...user,
-                   role: "hr",
+                   role: "superadmin",
                    status: "active"
                  }
               }
